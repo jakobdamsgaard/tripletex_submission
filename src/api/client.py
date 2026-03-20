@@ -3,6 +3,7 @@
 import base64
 import logging
 import re
+import unicodedata
 from typing import Optional, Dict, Any, List
 import httpx
 from config.constants import (
@@ -19,9 +20,21 @@ def _clean_credential_value(value: Any) -> str:
         return ""
 
     text = str(value)
-    # Strip control characters that can break httpx URL parsing.
-    text = re.sub(r"[\x00-\x1f\x7f]", "", text)
+    cleaned_chars = []
+    for char in text:
+        category = unicodedata.category(char)
+        if category.startswith("C"):
+            continue
+        cleaned_chars.append(char)
+
+    text = "".join(cleaned_chars)
     return text.strip()
+
+
+def _clean_url_value(value: Any) -> str:
+    """Normalize URL values more aggressively than secrets."""
+    text = _clean_credential_value(value)
+    return re.sub(r"\s+", "", text)
 
 
 class TripletexClient:
@@ -42,7 +55,7 @@ class TripletexClient:
             company_id: Target company ID (0 for own company)
             timeout: Request timeout in seconds
         """
-        cleaned_api_url = _clean_credential_value(api_url).rstrip("/")
+        cleaned_api_url = _clean_url_value(api_url).rstrip("/")
         cleaned_session_token = _clean_credential_value(session_token)
         cleaned_company_id = _clean_credential_value(company_id) or "0"
 
