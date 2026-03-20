@@ -96,6 +96,7 @@ def extract_entities(prompt: str) -> Dict[str, Any]:
         "employee_id": extract_entity_id(prompt, "employee"),
         "invoice_id": extract_entity_id(prompt, "invoice"),
         "project_id": extract_entity_id(prompt, "project"),
+        "department_id": extract_entity_id(prompt, "department"),
         "travel_expense_id": extract_entity_id(prompt, "travel_expense"),
         "invoice_date": extract_invoice_date(prompt),
         "due_date": extract_due_date(prompt),
@@ -105,6 +106,8 @@ def extract_entities(prompt: str) -> Dict[str, Any]:
         "start_date": extract_start_date(prompt),
         "end_date": extract_end_date(prompt),
         "purpose": extract_purpose(prompt),
+        "should_post_invoice": should_post_invoice(prompt),
+        "is_project_participant_task": is_project_participant_task(prompt),
     }
 
 
@@ -126,6 +129,10 @@ def extract_customer_name(prompt: str) -> Optional[str]:
         match = re.search(pattern, prompt_clean, flags=re.IGNORECASE)
         if match:
             return clean_extracted_text(match.group(1))
+
+    quoted_name = extract_quoted_value(prompt_clean)
+    if quoted_name and any(keyword in prompt_clean.lower() for keyword in ["kunde", "customer"]):
+        return quoted_name
 
     return None
 
@@ -225,6 +232,10 @@ def extract_project_name(prompt: str) -> Optional[str]:
         if match:
             return clean_extracted_text(match.group(1))
 
+    quoted_name = extract_quoted_value(prompt_clean)
+    if quoted_name and any(keyword in prompt_clean.lower() for keyword in ["project", "prosjekt"]):
+        return quoted_name
+
     return None
 
 
@@ -257,7 +268,7 @@ def extract_email(text: str) -> Optional[str]:
 def extract_phone(text: str) -> Optional[str]:
     """Extract phone number from text."""
     match = re.search(
-        r"(?:phone|telefon|mobile|mobil)\s+(\+?\d[\d\s-]{6,}\d)",
+        r"(?:phone|telefon|mobile|mobil)\s*(?:number|nr\.?)?\s*(?:is\s+)?[:=]?\s*(\+?\d[\d\s-]{6,}\d)",
         text,
         flags=re.IGNORECASE,
     )
@@ -271,6 +282,7 @@ def extract_entity_id(prompt: str, entity: str) -> Optional[int]:
         "employee": r"(?:employee|ansatt)\s+(\d+)",
         "invoice": r"(?:invoice|faktura)\s+(\d+)",
         "project": r"(?:project|prosjekt)\s+(\d+)",
+        "department": r"(?:department|avdeling)\s+(\d+)",
         "travel_expense": r"(?:travel expense|reiseregning|travelExpense)\s+(\d+)",
     }
 
@@ -328,6 +340,7 @@ def extract_invoice_lines(text: str) -> List[Dict[str, Any]]:
     patterns = [
         r"(\d+(?:[.,]\d+)?)\s*(?:units?|stk|pcs?)\s*[x×]\s*(\d+(?:[.,]\d+)?)\s*(?:NOK|kr)",
         r"(\d+(?:[.,]\d+)?)\s*[x×]\s*(\d+(?:[.,]\d+)?)\s*(?:NOK|kr)",
+        r"(\d+(?:[.,]\d+)?)\s*(?:units?|stk|pcs?).{0,20}?(\d+(?:[.,]\d+)?)\s*(?:NOK|kr)",
     ]
 
     normalized_text = " ".join(text.strip().split())
@@ -388,6 +401,28 @@ def extract_purpose(text: str) -> Optional[str]:
         return clean_extracted_text(match.group(1))
 
     return None
+
+
+def should_post_invoice(text: str) -> bool:
+    """Detect whether the prompt asks to post the invoice."""
+    return bool(
+        re.search(
+            r"\b(post invoice|post the invoice|publish invoice|bokf.r|bokfør|bokfoer)\b",
+            text,
+            flags=re.IGNORECASE,
+        )
+    )
+
+
+def is_project_participant_task(text: str) -> bool:
+    """Detect whether the prompt adds a participant to an existing project."""
+    return bool(
+        re.search(
+            r"\b(participant|deltaker|team member|project member)\b",
+            text,
+            flags=re.IGNORECASE,
+        )
+    )
 
 
 def extract_quoted_value(text: str) -> Optional[str]:
