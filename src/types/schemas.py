@@ -12,8 +12,8 @@ from pydantic import BaseModel, Field
 class TripletexCredentials(BaseModel):
     """Tripletex authentication credentials."""
 
-    api_url: str
-    session_token: str
+    api_url: Optional[str] = None
+    session_token: Optional[str] = None
     company_id: str = "0"
 
 
@@ -23,7 +23,7 @@ class TaskRequest(BaseModel):
     task_prompt: str
     language: str = "en"
     attachments: Optional[List[str]] = None
-    tripletex: TripletexCredentials
+    tripletex: Optional[TripletexCredentials] = None
 
 
 # ============================================================================

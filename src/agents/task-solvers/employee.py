@@ -1,7 +1,7 @@
 """Example task solver for employee tasks."""
 
 import logging
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 from src.api.client import TripletexClient
 
 logger = logging.getLogger(__name__)

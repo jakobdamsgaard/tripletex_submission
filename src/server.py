@@ -3,7 +3,7 @@
 import logging
 from fastapi import FastAPI, Request, HTTPException
 from fastapi.responses import JSONResponse
-from src.types.schemas import TaskRequest, TaskResponse
+from src.types.schemas import TaskRequest, TaskResponse, TripletexCredentials
 from src.agents.solver import TaskSolver
 from config.settings import get_settings
 
@@ -42,6 +42,35 @@ async def solve_task(request: TaskRequest) -> TaskResponse:
         Task response with results
     """
     try:
+        settings = get_settings()
+        api_url = request.tripletex.api_url if request.tripletex and request.tripletex.api_url else settings.tripletex_api_url
+        session_token = (
+            request.tripletex.session_token
+            if request.tripletex and request.tripletex.session_token
+            else settings.tripletex_session_token
+        )
+        company_id = (
+            request.tripletex.company_id
+            if request.tripletex and request.tripletex.company_id
+            else settings.tripletex_company_id
+        )
+
+        if not api_url or not session_token:
+            raise HTTPException(
+                status_code=400,
+                detail="Missing Tripletex credentials. Provide them in the request or configure .env.",
+            )
+
+        request = request.model_copy(
+            update={
+                "tripletex": TripletexCredentials(
+                    api_url=api_url,
+                    session_token=session_token,
+                    company_id=company_id,
+                )
+            }
+        )
+
         logger.info(f"Received task in language: {request.language}")
         logger.info(f"Task prompt: {request.task_prompt[:100]}...")
 
