@@ -2,16 +2,26 @@
 
 import base64
 import logging
+import re
 from typing import Optional, Dict, Any, List
 import httpx
-from config.settings import get_settings
 from config.constants import (
-    TRIPLETEX_API_V2_URL,
     DEFAULT_TIMEOUT_SECONDS,
     STATUS_RATE_LIMIT,
 )
 
 logger = logging.getLogger(__name__)
+
+
+def _clean_credential_value(value: Any) -> str:
+    """Remove hidden control characters and surrounding whitespace."""
+    if value is None:
+        return ""
+
+    text = str(value)
+    # Strip control characters that can break httpx URL parsing.
+    text = re.sub(r"[\x00-\x1f\x7f]", "", text)
+    return text.strip()
 
 
 class TripletexClient:
@@ -32,18 +42,25 @@ class TripletexClient:
             company_id: Target company ID (0 for own company)
             timeout: Request timeout in seconds
         """
-        self.api_url = api_url.rstrip("/")
-        self.session_token = session_token
-        self.company_id = company_id
+        cleaned_api_url = _clean_credential_value(api_url).rstrip("/")
+        cleaned_session_token = _clean_credential_value(session_token)
+        cleaned_company_id = _clean_credential_value(company_id) or "0"
+
+        if not cleaned_api_url.startswith(("http://", "https://")):
+            raise ValueError("Tripletex API URL must start with http:// or https://")
+
+        self.api_url = cleaned_api_url
+        self.session_token = cleaned_session_token
+        self.company_id = cleaned_company_id
         self.timeout = timeout
         self._client = httpx.AsyncClient(timeout=timeout)
 
         # Prepare auth header
-        auth_string = f"{company_id}:{session_token}"
+        auth_string = f"{self.company_id}:{self.session_token}"
         encoded = base64.b64encode(auth_string.encode()).decode()
         self.auth_header = f"Basic {encoded}"
 
-        logger.info(f"TripletexClient initialized for company_id={company_id}")
+        logger.info(f"TripletexClient initialized for company_id={self.company_id}")
 
     async def close(self):
         """Close the async client."""
@@ -176,6 +193,9 @@ class TripletexClient:
         except httpx.NetworkError as e:
             logger.error(f"Network error: {e}")
             raise ConnectionError(f"Network error: {e}") from e
+        except httpx.InvalidURL as e:
+            logger.error(f"Invalid URL: {url!r}")
+            raise ValueError(f"Invalid Tripletex API URL: {url!r}") from e
 
     def get_headers(self) -> Dict[str, str]:
         """Get request headers."""
