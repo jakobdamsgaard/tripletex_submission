@@ -6,6 +6,24 @@ from typing import Dict, Any, Optional, List
 
 logger = logging.getLogger(__name__)
 
+ENTITY_PATTERNS = {
+    "employee": r"\b(ansatt|employee|worker|staff|empleado|funcionario|mitarbeiter|employ[eé])\b",
+    "customer": r"\b(kunde|customer|cliente|client|kunde)\b",
+    "product": r"\b(produkt|product|vare|item|producto|produto|produkt|produit)\b",
+    "invoice": r"\b(faktura|invoice|billing|factura|fatura|rechnung|facture)\b",
+    "project": r"\b(prosjekt|project|proyecto|projeto|projekt)\b",
+    "travel": r"\b(reise|travel expense|travel|expense|reiseregning|viaje|viagem|reisekosten|d[eé]placement)\b",
+    "department": r"\b(avdeling|department|departamento|abteilung|d[eé]partement)\b",
+}
+
+ACTION_PATTERNS = {
+    "delete": r"\b(slett|delete|remove|eliminar|borrar|apagar|excluir|l.oschen|supprimer)\b",
+    "update": r"\b(oppdater|update|modify|actualizar|modificar|atualizar|editar|aktualisieren|modifier)\b",
+    "create": r"\b(opprett|create|register|registrer|new|crear|registrar|novo|nouveau|criar|erstellen)\b",
+    "payment": r"\b(payment|betaling|pay|pago|pagamento|zahlung|paiement)\b",
+    "post": r"\b(post invoice|post the invoice|bokf.r|bokfør|bokfoer|publish invoice|registrar factura|registrar fatura|verbuchen|comptabiliser)\b",
+}
+
 
 def parse_task_prompt(prompt: str, language: str = "en") -> Dict[str, Any]:
     """Parse task prompt to extract intent and parameters.
@@ -40,29 +58,11 @@ def extract_intent(prompt: str) -> str:
 
     detected_intents = []
 
-    entity_patterns = {
-        "employee": r"\b(ansatt|employee|worker|staff)\b",
-        "customer": r"\b(kunde|customer)\b",
-        "product": r"\b(produkt|product|vare|item)\b",
-        "invoice": r"\b(faktura|invoice|billing)\b",
-        "project": r"\b(prosjekt|project)\b",
-        "travel": r"\b(reise|travel expense|travel|expense|reiseregning)\b",
-        "department": r"\b(avdeling|department)\b",
-    }
-
-    action_patterns = {
-        "delete": r"\b(slett|delete|remove)\b",
-        "update": r"\b(oppdater|update|modify)\b",
-        "create": r"\b(opprett|create|register|registrer|new)\b",
-        "payment": r"\b(payment|betaling|pay)\b",
-        "post": r"\b(post invoice|bokf.r|bokfør|publish invoice)\b",
-    }
-
-    for intent, pattern in entity_patterns.items():
+    for intent, pattern in ENTITY_PATTERNS.items():
         if re.search(pattern, prompt_lower):
             detected_intents.append(intent)
 
-    for intent, pattern in action_patterns.items():
+    for intent, pattern in ACTION_PATTERNS.items():
         if re.search(pattern, prompt_lower):
             detected_intents.append(intent)
 
@@ -122,6 +122,7 @@ def extract_customer_name(prompt: str) -> Optional[str]:
         r"create a customer named\s+(.+?)(?:\s+with|\s*$)",
         r"opprett kunde\s+(.+?)(?:\s+med|\s*$)",
         r"ny kunde\s+(.+?)(?:\s+med|\s*$)",
+        r"(?:cliente|client)\s+(?:llamado|llamada|nombrado|nomm[eé]|appel[eé]|chamado|chamada|namens)\s+(.+?)(?:\s+con|\s+com|\s+mit|\s+avec|\s*$)",
     ]
 
     prompt_clean = " ".join(prompt.strip().split())
@@ -144,6 +145,7 @@ def extract_department_name(prompt: str) -> Optional[str]:
         r"department named\s+(.+?)(?:\s+with|\s*$)",
         r"avdeling som heter\s+(.+?)(?:\s+med|\s*$)",
         r"avdeling kalt\s+(.+?)(?:\s+med|\s*$)",
+        r"(?:departamento|abteilung|d[eé]partement)\s+(?:llamado|llamada|chamado|chamada|namens|nomm[eé]|appel[eé])\s+(.+?)(?:\s+con|\s+com|\s+mit|\s+avec|\s*$)",
     ]
 
     prompt_clean = " ".join(prompt.strip().split())
@@ -166,6 +168,7 @@ def extract_product_name(prompt: str) -> Optional[str]:
         r"create a product named\s+(.+?)(?:\s+with|\s*$)",
         r"produkt som heter\s+(.+?)(?:\s+med|\s*$)",
         r"opprett et produkt som heter\s+(.+?)(?:\s+med|\s*$)",
+        r"(?:producto|produto|produkt|produit)\s+(?:llamado|llamada|chamado|chamada|namens|nomm[eé]|appel[eé])\s+(.+?)(?:\s+con|\s+com|\s+mit|\s+avec|\s*$)",
     ]
 
     prompt_clean = " ".join(prompt.strip().split())
@@ -188,6 +191,7 @@ def extract_employee_name(prompt: str) -> Optional[Dict[str, str]]:
         r"ansatt som heter\s+([A-ZÆØÅ][^\d,]+?)(?:\s+med|\s*$)",
         r"opprett en ansatt som heter\s+([A-ZÆØÅ][^\d,]+?)(?:\s+med|\s*$)",
         r"create an employee named\s+([A-ZÆØÅ][^\d,]+?)(?:\s+with|\s*$)",
+        r"(?:empleado|funcionario|mitarbeiter|employ[eé])\s+(?:llamado|llamada|chamado|chamada|namens|nomm[eé]|appel[eé])\s+([A-ZÆØÅ][^\d,]+?)(?:\s+con|\s+com|\s+mit|\s+avec|\s*$)",
     ]
 
     prompt_clean = " ".join(prompt.strip().split())
@@ -201,7 +205,7 @@ def extract_employee_name(prompt: str) -> Optional[Dict[str, str]]:
 
     if not full_name:
         quoted_name = extract_quoted_value(prompt_clean)
-        if quoted_name and any(keyword in prompt_clean.lower() for keyword in ["ansatt", "employee"]):
+        if quoted_name and re.search(ENTITY_PATTERNS["employee"], prompt_clean.lower()):
             full_name = quoted_name
 
     if not full_name:
@@ -224,6 +228,8 @@ def extract_project_name(prompt: str) -> Optional[str]:
         r"prosjekt\s+['\"]([^'\"]+)['\"]",
         r"project called\s+(.+?)(?:\s+for customer|\s+starting|\s*$)",
         r"prosjekt som heter\s+(.+?)(?:\s+for kunde|\s+fra|\s*$)",
+        r"(?:proyecto|projeto|projekt)\s+['\"]([^'\"]+)['\"]",
+        r"(?:proyecto|projeto|projekt)\s+(?:llamado|llamada|chamado|chamada|namens)\s+(.+?)(?:\s+para|\s+f.r|\s+for|\s+ab|\s+desde|\s*$)",
     ]
 
     prompt_clean = " ".join(prompt.strip().split())
@@ -242,7 +248,7 @@ def extract_project_name(prompt: str) -> Optional[str]:
 def extract_department_number(prompt: str) -> Optional[str]:
     """Extract department number from prompt."""
     match = re.search(
-        r"(?:department number|avdelingsnummer|department no\.?|nummer)\s+(\d+)",
+        r"(?:department number|avdelingsnummer|department no\.?|nummer|n[uú]mero de departamento|n[uú]mero do departamento|abteilungsnummer|num[eé]ro du d[eé]partement)\s+(\d+)",
         prompt,
         flags=re.IGNORECASE,
     )
@@ -252,7 +258,7 @@ def extract_department_number(prompt: str) -> Optional[str]:
 def extract_organization_number(prompt: str) -> Optional[str]:
     """Extract organization number from prompt."""
     match = re.search(
-        r"(?:organization number|organisasjonsnummer)\s+(\d{9})",
+        r"(?:organization number|organisasjonsnummer|n[uú]mero de organizaci[oó]n|n[uú]mero de organiza[cç][aã]o|organisationsnummer|num[eé]ro d'organisation)\s+(\d{9})",
         prompt,
         flags=re.IGNORECASE,
     )
@@ -268,7 +274,7 @@ def extract_email(text: str) -> Optional[str]:
 def extract_phone(text: str) -> Optional[str]:
     """Extract phone number from text."""
     match = re.search(
-        r"(?:phone|telefon|mobile|mobil)\s*(?:number|nr\.?)?\s*(?:is\s+)?[:=]?\s*(\+?\d[\d\s-]{6,}\d)",
+        r"(?:phone|telefon|mobile|mobil|tel[eé]fono|telefone|telefonnummer|t[eé]l[eé]phone)\s*(?:number|nr\.?|n[uú]mero)?\s*(?:is\s+)?[:=]?\s*(\+?\d[\d\s-]{6,}\d)",
         text,
         flags=re.IGNORECASE,
     )
@@ -278,12 +284,12 @@ def extract_phone(text: str) -> Optional[str]:
 def extract_entity_id(prompt: str, entity: str) -> Optional[int]:
     """Extract entity ID from prompt based on entity label."""
     entity_patterns = {
-        "customer": r"(?:customer|kunde)\s+(\d+)",
-        "employee": r"(?:employee|ansatt)\s+(\d+)",
-        "invoice": r"(?:invoice|faktura)\s+(\d+)",
-        "project": r"(?:project|prosjekt)\s+(\d+)",
-        "department": r"(?:department|avdeling)\s+(\d+)",
-        "travel_expense": r"(?:travel expense|reiseregning|travelExpense)\s+(\d+)",
+        "customer": r"(?:customer|kunde|cliente|client)\s+(\d+)",
+        "employee": r"(?:employee|ansatt|empleado|funcionario|mitarbeiter|employ[eé])\s+(\d+)",
+        "invoice": r"(?:invoice|faktura|factura|fatura|rechnung|facture)\s+(\d+)",
+        "project": r"(?:project|prosjekt|proyecto|projeto|projekt)\s+(\d+)",
+        "department": r"(?:department|avdeling|departamento|abteilung|d[eé]partement)\s+(\d+)",
+        "travel_expense": r"(?:travel expense|reiseregning|travelExpense|gasto de viaje|despesa de viagem|reisekosten)\s+(\d+)",
     }
 
     pattern = entity_patterns.get(entity)
@@ -296,11 +302,11 @@ def extract_entity_id(prompt: str, entity: str) -> Optional[int]:
 
 def extract_invoice_date(text: str) -> Optional[str]:
     """Extract invoice date from prompt."""
-    match = re.search(r"(?:dated|invoice date|fakturadato)\s+(\d{4}-\d{2}-\d{2})", text, flags=re.IGNORECASE)
+    match = re.search(r"(?:dated|invoice date|fakturadato|fecha de factura|data da fatura|rechnungsdatum|date de facture)\s+(\d{4}-\d{2}-\d{2})", text, flags=re.IGNORECASE)
     if match:
         return match.group(1)
 
-    if re.search(r"\b(invoice|faktura)\b", text, flags=re.IGNORECASE):
+    if re.search(ENTITY_PATTERNS["invoice"], text, flags=re.IGNORECASE):
         dates = extract_dates(text)
         return dates[0] if dates else None
 
@@ -309,18 +315,18 @@ def extract_invoice_date(text: str) -> Optional[str]:
 
 def extract_due_date(text: str) -> Optional[str]:
     """Extract due date from prompt."""
-    match = re.search(r"(?:due date|forfaller|forfallsdato)\s+(\d{4}-\d{2}-\d{2})", text, flags=re.IGNORECASE)
+    match = re.search(r"(?:due date|forfaller|forfallsdato|fecha de vencimiento|data de vencimento|f.lligkeitsdatum|date d'[ée]ch[eé]ance)\s+(\d{4}-\d{2}-\d{2})", text, flags=re.IGNORECASE)
     return match.group(1) if match else None
 
 
 def extract_payment_date(text: str) -> Optional[str]:
     """Extract payment date from prompt."""
-    match = re.search(r"(?:payment on|dated|betalingsdato|betalt\s+)\s+(\d{4}-\d{2}-\d{2})", text, flags=re.IGNORECASE)
-    if match and re.search(r"\b(payment|betaling|pay)\b", text, flags=re.IGNORECASE):
+    match = re.search(r"(?:payment on|dated|betalingsdato|betalt\s+|fecha de pago|data de pagamento|zahlungsdatum|date de paiement)\s+(\d{4}-\d{2}-\d{2})", text, flags=re.IGNORECASE)
+    if match and re.search(ACTION_PATTERNS["payment"], text, flags=re.IGNORECASE):
         return match.group(1)
 
     dates = extract_dates(text)
-    if dates and re.search(r"\b(payment|betaling|pay)\b", text, flags=re.IGNORECASE):
+    if dates and re.search(ACTION_PATTERNS["payment"], text, flags=re.IGNORECASE):
         return dates[0]
 
     return None
@@ -328,7 +334,7 @@ def extract_payment_date(text: str) -> Optional[str]:
 
 def extract_amount(text: str) -> Optional[float]:
     """Extract a single amount from prompt."""
-    match = re.search(r"(\d+(?:[.,]\d+)?)\s*(?:NOK|kr)\b", text, flags=re.IGNORECASE)
+    match = re.search(r"(\d+(?:[.,]\d+)?)\s*(?:NOK|kr|eur|usd)\b", text, flags=re.IGNORECASE)
     if not match:
         return None
 
@@ -338,9 +344,9 @@ def extract_amount(text: str) -> Optional[float]:
 def extract_invoice_lines(text: str) -> List[Dict[str, Any]]:
     """Extract simple invoice lines from prompts like '10 units x 100 NOK'."""
     patterns = [
-        r"(\d+(?:[.,]\d+)?)\s*(?:units?|stk|pcs?)\s*[x×]\s*(\d+(?:[.,]\d+)?)\s*(?:NOK|kr)",
-        r"(\d+(?:[.,]\d+)?)\s*[x×]\s*(\d+(?:[.,]\d+)?)\s*(?:NOK|kr)",
-        r"(\d+(?:[.,]\d+)?)\s*(?:units?|stk|pcs?).{0,20}?(\d+(?:[.,]\d+)?)\s*(?:NOK|kr)",
+        r"(\d+(?:[.,]\d+)?)\s*(?:units?|stk|pcs?|unidades?|uds?|einheiten?)\s*[x×]\s*(\d+(?:[.,]\d+)?)\s*(?:NOK|kr|eur|usd)",
+        r"(\d+(?:[.,]\d+)?)\s*[x×]\s*(\d+(?:[.,]\d+)?)\s*(?:NOK|kr|eur|usd)",
+        r"(\d+(?:[.,]\d+)?)\s*(?:units?|stk|pcs?|unidades?|uds?|einheiten?).{0,20}?(\d+(?:[.,]\d+)?)\s*(?:NOK|kr|eur|usd)",
     ]
 
     normalized_text = " ".join(text.strip().split())
@@ -364,7 +370,7 @@ def extract_invoice_lines(text: str) -> List[Dict[str, Any]]:
 def extract_start_date(text: str) -> Optional[str]:
     """Extract start date from prompts with explicit labels."""
     patterns = [
-        r"(?:starting|start date|from|fra)\s+(\d{4}-\d{2}-\d{2})",
+        r"(?:starting|start date|from|fra|desde|iniciando|a partir de|ab|anfang|d[eé]but)\s+(\d{4}-\d{2}-\d{2})",
     ]
     for pattern in patterns:
         match = re.search(pattern, text, flags=re.IGNORECASE)
@@ -377,7 +383,7 @@ def extract_start_date(text: str) -> Optional[str]:
 
 def extract_end_date(text: str) -> Optional[str]:
     """Extract end date from prompts with explicit labels."""
-    match = re.search(r"(?:to|til|end date)\s+(\d{4}-\d{2}-\d{2})", text, flags=re.IGNORECASE)
+    match = re.search(r"(?:to|til|end date|hasta|ate|bis|fin)\s+(\d{4}-\d{2}-\d{2})", text, flags=re.IGNORECASE)
     if match:
         return match.group(1)
 
@@ -389,14 +395,14 @@ def extract_purpose(text: str) -> Optional[str]:
     """Extract a simple purpose field from travel prompts."""
     normalized_text = " ".join(text.strip().split())
     match = re.search(
-        r"(?:to|til)\s+\d{4}-\d{2}-\d{2}\s+for\s+(.+)$",
+        r"(?:to|til|hasta|ate|bis)\s+\d{4}-\d{2}-\d{2}\s+(?:for|para|por|f.r)\s+(.+)$",
         normalized_text,
         flags=re.IGNORECASE,
     )
     if match:
         return clean_extracted_text(match.group(1))
 
-    match = re.search(r"purpose[: ]+(.+)$", normalized_text, flags=re.IGNORECASE)
+    match = re.search(r"(?:purpose|prop[oó]sito|objetivo|zweck)[: ]+(.+)$", normalized_text, flags=re.IGNORECASE)
     if match:
         return clean_extracted_text(match.group(1))
 
@@ -407,7 +413,7 @@ def should_post_invoice(text: str) -> bool:
     """Detect whether the prompt asks to post the invoice."""
     return bool(
         re.search(
-            r"\b(post invoice|post the invoice|publish invoice|bokf.r|bokfør|bokfoer)\b",
+            r"\b(post invoice|post the invoice|publish invoice|bokf.r|bokfør|bokfoer|publicar factura|registrar factura|registrar fatura|verbuchen|comptabiliser)\b",
             text,
             flags=re.IGNORECASE,
         )
@@ -418,7 +424,7 @@ def is_project_participant_task(text: str) -> bool:
     """Detect whether the prompt adds a participant to an existing project."""
     return bool(
         re.search(
-            r"\b(participant|deltaker|team member|project member)\b",
+            r"\b(participant|deltaker|team member|project member|participante|teilnehmer|participant au projet)\b",
             text,
             flags=re.IGNORECASE,
         )

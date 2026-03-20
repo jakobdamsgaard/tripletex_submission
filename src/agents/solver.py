@@ -211,6 +211,10 @@ class TaskSolver:
         entities = task_info.get("entities", {})
         intent = task_info.get("intent", "")
 
+        if "post" in intent and entities.get("invoice_id") and not entities.get("invoice_lines"):
+            response = await self._post(f"/invoice/{entities['invoice_id']}/:post", {})
+            return {"updated_objects": [self._unwrap_response(response)]}
+
         if "payment" in intent:
             invoice_id = entities.get("invoice_id")
             amount = entities.get("amount")
@@ -335,7 +339,24 @@ class TaskSolver:
         """Solve product-related tasks."""
         logger.info("Solving product task")
         entities = task_info.get("entities", {})
+        intent = task_info.get("intent", "")
         product_name = entities.get("product_name")
+        product_id = extract_id_from_numbers(entities.get("numbers") or [])
+
+        if "update" in intent and product_id:
+            payload: Dict[str, Any] = {}
+            if product_name:
+                payload["name"] = product_name
+            amount = entities.get("amount")
+            if amount is not None:
+                payload["sellingPrice"] = amount
+
+            if not payload:
+                raise ValueError("No supported product fields found to update")
+
+            response = await self._put(f"/product/{product_id}", payload)
+            return {"updated_objects": [self._unwrap_response(response)]}
+
         if not product_name:
             raise ValueError("Could not extract product name from task prompt")
 
@@ -435,3 +456,11 @@ class TaskSolver:
             return f"{exc.message} ({'; '.join(details)})"
 
         return exc.message
+
+
+def extract_id_from_numbers(numbers: list[str]) -> Optional[int]:
+    """Best-effort fallback for prompts that mention an entity id but parser missed the label."""
+    for number in numbers:
+        if len(number) >= 2:
+            return int(number)
+    return None
