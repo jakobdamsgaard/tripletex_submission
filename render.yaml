@@ -1,0 +1,16 @@
+services:
+  - type: web
+    name: tripletex-submission
+    runtime: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn src.server:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.6
+      - key: TRIPLETEX_API_URL
+        sync: false
+      - key: TRIPLETEX_SESSION_TOKEN
+        sync: false
+      - key: TRIPLETEX_COMPANY_ID
+        value: "0"
