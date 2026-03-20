@@ -31,6 +31,16 @@ async def health_check():
     return {"status": "ok", "service": "tripletex-agent"}
 
 
+@app.get("/")
+async def root():
+    """Root endpoint for basic uptime checks."""
+    return {
+        "status": "ok",
+        "service": "tripletex-agent",
+        "endpoints": ["/health", "/solve"],
+    }
+
+
 @app.post("/solve", response_model=TaskResponse)
 async def solve_task(request: TaskRequest) -> TaskResponse:
     """Solve an accounting task.
