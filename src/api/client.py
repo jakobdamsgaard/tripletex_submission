@@ -37,6 +37,14 @@ def _clean_url_value(value: Any) -> str:
     return re.sub(r"\s+", "", text)
 
 
+def _redact_headers(headers: Dict[str, str]) -> Dict[str, str]:
+    """Redact sensitive header values for logs."""
+    redacted = dict(headers)
+    if "Authorization" in redacted:
+        redacted["Authorization"] = "Basic [redacted]"
+    return redacted
+
+
 class TripletexClient:
     """HTTP client for Tripletex API v2."""
 
@@ -171,9 +179,20 @@ class TripletexClient:
         headers = kwargs.pop("headers", {})
         headers["Authorization"] = self.auth_header
         headers["Content-Type"] = "application/json"
+        params = kwargs.get("params")
+        json_payload = kwargs.get("json")
 
         try:
+            logger.info(
+                "Tripletex request %s %s params=%s json=%s headers=%s",
+                method,
+                url,
+                params,
+                json_payload,
+                _redact_headers(headers),
+            )
             response = await self._client.request(method, url, headers=headers, **kwargs)
+            logger.info("Tripletex response %s %s status=%s", method, url, response.status_code)
 
             # Handle rate limiting
             if response.status_code == STATUS_RATE_LIMIT:
@@ -189,9 +208,7 @@ class TripletexClient:
             # Handle errors
             if response.status_code >= 400:
                 error_data = response.json() if response.text else {}
-                logger.error(
-                    f"API Error {response.status_code}: {error_data.get('message', 'Unknown error')}"
-                )
+                logger.error("Tripletex API error status=%s body=%s", response.status_code, error_data)
                 raise APIError(response.status_code, error_data)
 
             # Return parsed response

@@ -42,7 +42,8 @@ class TaskSolver:
 
             # Parse task
             task_info = parse_task_prompt(request.task_prompt, request.language)
-            logger.info(f"Parsed task intent: {task_info['intent']}")
+            logger.info("Parsed task intent: %s", task_info["intent"])
+            logger.info("Parsed task entities: %s", task_info["entities"])
 
             # Process attachments if any
             attachments = {}
@@ -98,7 +99,7 @@ class TaskSolver:
         """
         intent = task_info["intent"]
         prompt = task_info["raw_prompt"]
-        _ = attachments
+        logger.info("Routing task intent=%s attachments=%s", intent, list(attachments.keys()))
 
         # Route to the primary task entity, not referenced entities inside the prompt.
         if "delete" in intent:

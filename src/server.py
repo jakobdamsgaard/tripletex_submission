@@ -14,6 +14,15 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+
+def _mask_secret(value: str | None) -> str:
+    """Mask sensitive values in logs."""
+    if not value:
+        return "[missing]"
+    if len(value) <= 8:
+        return "[redacted]"
+    return f"{value[:4]}...{value[-4:]}"
+
 # Initialize FastAPI app
 app = FastAPI(
     title="Tripletex AI Agent",
@@ -81,13 +90,19 @@ async def solve_task(request: TaskRequest) -> TaskResponse:
             }
         )
 
-        logger.info(f"Received task in language: {request.language}")
-        logger.info(f"Task prompt: {request.task_prompt[:100]}...")
+        logger.info("Received task in language: %s", request.language)
+        logger.info("Task prompt: %s", request.task_prompt)
+        logger.info(
+            "Tripletex credentials api_url=%r company_id=%r session_token=%s",
+            request.tripletex.api_url,
+            request.tripletex.company_id,
+            _mask_secret(request.tripletex.session_token),
+        )
 
         # Solve the task
         response = await solver.solve(request)
 
-        logger.info(f"Task completed with status: {response.status}")
+        logger.info("Task completed with status: %s", response.status)
         return response
 
     except Exception as e:
