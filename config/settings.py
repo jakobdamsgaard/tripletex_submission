@@ -1,12 +1,18 @@
 """Configuration management for Tripletex agent."""
 
 from typing import Optional
-from pydantic_settings import BaseSettings
+from pydantic_settings import BaseSettings, SettingsConfigDict
 from functools import lru_cache
 
 
 class Settings(BaseSettings):
     """Application settings from environment variables."""
+
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        env_file_encoding="utf-8",
+        case_sensitive=False,
+    )
 
     # API Configuration
     tripletex_api_url: str = "https://kkpqfuj-amager.tripletex.dev/v2"
@@ -34,12 +40,6 @@ class Settings(BaseSettings):
     use_vision_for_images: bool = True
     retry_failed_requests: bool = True
     max_retries: int = 3
-
-    class Config:
-        env_file = ".env"
-        env_file_encoding = "utf-8"
-        case_sensitive = False
-
 
 @lru_cache()
 def get_settings() -> Settings:

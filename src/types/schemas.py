@@ -2,7 +2,7 @@
 
 from typing import Optional, List, Dict, Any
 from datetime import datetime
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 
 
 # ============================================================================
@@ -145,9 +145,7 @@ class TravelExpense(BaseModel):
 
 class APIResponseEnvelope(BaseModel):
     """Generic API response envelope from Tripletex."""
-
-    class Config:
-        extra = "allow"
+    model_config = ConfigDict(extra="allow")
 
     fullResultSize: Optional[int] = None
     from_: Optional[int] = Field(None, alias="from")
@@ -158,9 +156,7 @@ class APIResponseEnvelope(BaseModel):
 
 class SingleValueEnvelope(BaseModel):
     """Single value response envelope."""
-
-    class Config:
-        extra = "allow"
+    model_config = ConfigDict(extra="allow")
 
     value: Optional[Dict[str, Any]] = None
 
